@@ -15,7 +15,7 @@ PHONE_NUMBER_ID = os.getenv('PHONE_NUMBER_ID')
 ACCESS_TOKEN = os.getenv('ACCESS_TOKEN')
 
 # Base URL for WhatsApp Cloud API
-WHATSAPP_API_URL = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
+WHATSAPP_API_URL = f"https://graph.facebook.com/v24.0/{PHONE_NUMBER_ID}/messages"
 
 def send_whatsapp_message(target_number, message_text):
     """
