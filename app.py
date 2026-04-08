@@ -141,4 +141,5 @@ if __name__ == '__main__':
     print("Starting WhatsApp Webhook Server...")
     print(f"Verify Token: {VERIFY_TOKEN[:5]}..." if VERIFY_TOKEN else "Verify Token: Not set")
     print(f"Phone Number ID: {PHONE_NUMBER_ID}")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port_railway = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port_railway, debug=True)
