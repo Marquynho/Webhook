@@ -1,7 +1,7 @@
 import os
 import json
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -51,7 +51,7 @@ def verify_webhook():
     if mode and token:
         if mode == 'subscribe' and token == VERIFY_TOKEN:
             print("WEBHOOK_VERIFIED")
-            return challenge, 200
+            return make_response(str(challenge), 200)
         else:
             print("VERIFICATION_FAILED")
             return jsonify({"error": "Verification failed"}), 403
