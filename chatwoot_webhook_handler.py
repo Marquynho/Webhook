@@ -31,22 +31,25 @@ def send_whatsapp_message(to_number, message_text):
         "Authorization": f"Bearer {WHATSAPP_API_TOKEN}",
         "Content-Type": "application/json"
     }
+
+    clean_number = to_number.replace("+", "")
     
     json_data = {
         "messaging_product": "whatsapp",
-        "to": to_number,
+        "to": clean_number,
         "type": "text",
         "text": {
             "body": message_text
         }
     }
     
-    whatsapp_api_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    whatsapp_api_url = f"https://graph.facebook.com/v24.0/{PHONE_NUMBER_ID}/messages"
     
     try:
-        response = requests.post(whatsapp_api_url, headers=headers, json=json_data, timeout=5)
-        response.raise_for_status() # Levanta um erro para códigos de status HTTP ruins (4xx ou 5xx)
-        print("Mensagem de resposta enviada com sucesso!")
+        response = requests.post(whatsapp_api_url, headers=headers, json=json_data, timeout=10 )
+        print(f"Resposta da Meta API: {response.status_code} - {response.text}")
+
+    
     except requests.exceptions.RequestException as e:
         print(f"Erro ao enviar mensagem de resposta: {e}")
         if hasattr(e, "response") and e.response is not None:
@@ -54,38 +57,44 @@ def send_whatsapp_message(to_number, message_text):
 
 @app.route("/chatwoot-webhook", methods=["POST"])
 def chatwoot_webhook():
-    data = request.get_json()
-    print("Webhook do Chatwoot recebido:", json.dumps(data, indent=2))
-
-    # Retorna 200 OK imediatamente para o Chatwoot
-    # O processamento da lógica é rápido o suficiente para ser síncrono aqui.
-
+    # Retornamos 200 OK imediatamente para o Chatwoot não tentar reenviar em caso de erro
     try:
-        # Verifica se o evento é de uma mensagem criada e se é uma mensagem de entrada (do cliente)
-        if data.get("event") == "message_created" and \
-           data.get("message", {}).get("message_type") == "incoming" and \
-           data.get("message", {}).get("content_type") == "text":
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "no_data"}), 200
+
+        # Log para debug (ajuda a ver o que está chegando)
+        print(f"Evento recebido: {data.get('event')}")
+
+        # Lógica principal
+        if data.get("event") == "message_created":
+            message = data.get("message", {})
             
-            message_content = data["message"]["content"]
-            sender_phone_number = data["message"]["sender"]["phone_number"]
+            # Só processamos se for mensagem de entrada (do cliente) e do tipo texto
+            if message.get("message_type") == "incoming" and message.get("content_type") == "text":
+                content = message.get("content", "").strip()
+                
+                # Tenta pegar o número de várias formas possíveis no JSON do Chatwoot
+                sender = data.get("sender", {})
+                phone_number = sender.get("phone_number") or message.get("sender", {}).get("phone_number")
+                
+                if not phone_number:
+                    # Tenta pegar do objeto contact se o sender falhar
+                    phone_number = data.get("contact", {}).get("phone_number")
 
-            print(f"Mensagem recebida do Chatwoot: '{message_content}' de {sender_phone_number}")
+                print(f"Processando mensagem: '{content}' de {phone_number}")
 
-            # Verifica se o conteúdo da mensagem corresponde a um botão interativo esperado
-            if message_content in BUTTON_RESPONSES:
-                response_text = BUTTON_RESPONSES[message_content]
-                print(f"Identificado clique no botão: '{message_content}'. Enviando resposta automática.")
-                send_whatsapp_message(sender_phone_number, response_text)
-            else:
-                print(f"Mensagem '{message_content}' não corresponde a um botão interativo configurado. Nenhuma ação automática.")
-        else:
-            print("Evento não é uma mensagem de entrada de texto ou não é 'message_created'. Ignorando.")
+                if content in BUTTON_RESPONSES and phone_number:
+                    response_text = BUTTON_RESPONSES[content]
+                    print(f"Botão detectado! Respondendo para {phone_number}...")
+                    send_whatsapp_message(phone_number, response_text)
+                else:
+                    print("Mensagem não corresponde a um botão ou número não encontrado.")
 
     except Exception as e:
-        print(f"Erro ao processar webhook do Chatwoot: {e}")
-        # Em caso de erro, ainda retornamos 200 OK para o Chatwoot
+        print(f"ERRO CRÍTICO NO PROCESSAMENTO: {e}")
         
-    return jsonify({"status": "OK", "message": "Webhook processed"}), 200
+    return jsonify({"status": "processed"}), 200
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
