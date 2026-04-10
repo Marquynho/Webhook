@@ -57,32 +57,34 @@ def send_whatsapp_message(to_number, message_text):
 
 @app.route("/chatwoot-webhook", methods=["POST"])
 def chatwoot_webhook():
-    # Retornamos 200 OK imediatamente para o Chatwoot não tentar reenviar em caso de erro
     try:
         data = request.get_json()
         if not data:
             return jsonify({"status": "no_data"}), 200
 
-        # Log para debug (ajuda a ver o que está chegando)
-        print(f"Evento recebido: {data.get('event')}")
+        event = data.get('event')
+        print(f"Evento recebido: {event}")
 
-        # Lógica principal
-        if data.get("event") == "message_created":
-            message = data.get("message", {})
+        if event == "message_created":
+            # No Chatwoot, os campos costumam vir na raiz do payload para este evento
+            message_type = data.get("message_type")
+            content_type = data.get("content_type")
+            content = data.get("content", "").strip()
             
-            # Só processamos se for mensagem de entrada (do cliente) e do tipo texto
-            if message.get("message_type") == "incoming" and message.get("content_type") == "text":
-                content = message.get("content", "").strip()
-                
-                # Tenta pegar o número de várias formas possíveis no JSON do Chatwoot
-                sender = data.get("sender", {})
-                phone_number = sender.get("phone_number") or message.get("sender", {}).get("phone_number")
-                
-                if not phone_number:
-                    # Tenta pegar do objeto contact se o sender falhar
-                    phone_number = data.get("contact", {}).get("phone_number")
+            # Logs de debug para confirmar o que está chegando
+            print(f"DEBUG: type={message_type}, content_type={content_type}, content='{content}'")
 
-                print(f"Processando mensagem: '{content}' de {phone_number}")
+            # Verifica se é mensagem de entrada e do tipo texto
+            if message_type == "incoming" and content_type == "text":
+                # Busca o telefone no sender ou no contact
+                sender = data.get("sender", {})
+                contact = data.get("contact", {})
+                
+                phone_number = (sender.get("phone_number") or 
+                                contact.get("phone_number") or 
+                                data.get("conversation", {}).get("contact_inbox", {}).get("source_id"))
+
+                print(f"Processando mensagem de: {phone_number}")
 
                 if content in BUTTON_RESPONSES and phone_number:
                     response_text = BUTTON_RESPONSES[content]
@@ -90,11 +92,14 @@ def chatwoot_webhook():
                     send_whatsapp_message(phone_number, response_text)
                 else:
                     print("Mensagem não corresponde a um botão ou número não encontrado.")
+            else:
+                print(f"Mensagem ignorada: Tipo {message_type} ou Formato {content_type}")
 
     except Exception as e:
         print(f"ERRO CRÍTICO NO PROCESSAMENTO: {e}")
         
     return jsonify({"status": "processed"}), 200
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
