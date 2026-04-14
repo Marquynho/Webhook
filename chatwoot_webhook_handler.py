@@ -13,8 +13,8 @@ PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
 # Mapeamento de textos de botões para respostas automáticas
 # Em um cenário real, isso poderia vir de um banco de dados ou arquivo de configuração
 BUTTON_RESPONSES = {
-    "Quero estudar esse ganho?": "Você decidiu estudar o ganho! Em breve, um de nossos atendentes entrará em contato com mais informações.",
-    "Agora não, valeu.": "Entendido! Sinta-se à vontade para entrar em contato quando desejar entender mais sobre."
+    "Quero estudar esse ganho?": "Ótimo. O Tiago já vai te chamar agora com as informações.",
+    "Agora não, valeu.": "Entendido! Sinta-se à vontade para entrar em contato se mudar de ideia."
 }
 
 def send_whatsapp_message(to_number, message_text):
